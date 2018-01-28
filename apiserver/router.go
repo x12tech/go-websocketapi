@@ -92,7 +92,6 @@ func (self *Router) ProcessCommand(conn Conn, version int, command string, data 
 
 func (self *Router) ProcessPacket(conn Conn, packetBuf []byte) {
 	var packet *PacketIn
-	self.log.Println(`IN:`, string(packetBuf))
 	err := json.Unmarshal(packetBuf, &packet)
 	if err != nil {
 		errBuf, _ := json.Marshal(&PacketOut{
@@ -112,7 +111,6 @@ func (self *Router) ProcessPacket(conn Conn, packetBuf []byte) {
 	if err != nil {
 		panic(err)
 	} else {
-		self.log.Println(`OUT:`, string(ret))
 		conn.Send(ret)
 	}
 }

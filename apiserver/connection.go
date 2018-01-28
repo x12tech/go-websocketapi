@@ -9,6 +9,7 @@ import (
 type Conn interface {
 	Send([]byte) error
 	Session() interface{}
+	SetSession(v interface{})
 	Close()
 }
 
@@ -34,16 +35,22 @@ func (self *Connection) Start() {
 			self.Close()
 			break
 		}
+		self.log.Println(`IN:`, string(buf[0:n]))
 		self.onInput(self, buf[0:n])
 	}
 }
 
 func (self *Connection) Send(buf []byte) error {
+	self.log.Println(`OUT:`, string(buf))
 	_, err := self.ws.Write(buf)
 	if err != nil {
 		self.Close()
 	}
 	return err
+}
+
+func (self *Connection) SetSession(v interface{}) {
+	self.sess = v
 }
 
 func (self *Connection) Session() interface{} {
@@ -55,6 +62,8 @@ type Closer interface {
 }
 
 func (self *Connection) Close() {
+	self.log.Println(`Close()`)
+	self.log.Println(self.sess)
 	if sessionCloser, ok := self.sess.(Closer); ok {
 		sessionCloser.Close()
 	}
@@ -78,6 +87,10 @@ func (self *FakeConn) Send(buf []byte) error {
 
 func (self *FakeConn) Session() interface{} {
 	return self.SessionValue
+}
+
+func (self *FakeConn) SetSession(v interface{}) {
+	self.SessionValue = v
 }
 
 func (*FakeConn) Close() {
