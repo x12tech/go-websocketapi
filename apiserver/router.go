@@ -2,7 +2,6 @@ package apiserver
 
 import (
 	"encoding/json"
-	"log"
 	"reflect"
 	"sort"
 )
@@ -29,6 +28,7 @@ type IRouter interface {
 type Router struct {
 	commandHandlers map[string]*handlerValues
 	getVersion      func(conn Conn) int
+	log             Logger
 }
 
 func NewRouter() *Router {
@@ -36,6 +36,10 @@ func NewRouter() *Router {
 		commandHandlers: make(map[string]*handlerValues),
 		getVersion:      func(conn Conn) int { return 0 },
 	}
+}
+
+func (self *Router) SetLogger(l Logger) {
+	self.log = l
 }
 
 // handlerFunc Must be func(*Conn,*SomeType) *SomeRetType,error
@@ -88,7 +92,7 @@ func (self *Router) ProcessCommand(conn Conn, version int, command string, data 
 
 func (self *Router) ProcessPacket(conn Conn, packetBuf []byte) {
 	var packet *PacketIn
-	log.Println(`IN:`, string(packetBuf))
+	self.log.Println(`IN:`, string(packetBuf))
 	err := json.Unmarshal(packetBuf, &packet)
 	if err != nil {
 		errBuf, _ := json.Marshal(&PacketOut{
@@ -108,7 +112,7 @@ func (self *Router) ProcessPacket(conn Conn, packetBuf []byte) {
 	if err != nil {
 		panic(err)
 	} else {
-		log.Println(`OUT:`, string(ret))
+		self.log.Println(`OUT:`, string(ret))
 		conn.Send(ret)
 	}
 }

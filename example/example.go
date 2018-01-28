@@ -1,10 +1,12 @@
-package example
+package main
 
 import (
-	"github.com/x12tech/go-websocketapi/apiserver"
 	"net/http"
 
-	"github.com/vvoronin/log"
+	"log"
+	"os"
+
+	"github.com/x12tech/go-websocketapi/apiserver"
 )
 
 type commandHandler struct {
@@ -16,8 +18,8 @@ type pingRequest struct {
 }
 
 type pongResponce struct {
-	Pong string `json:"pong"`
-	Times int `json:"times"`
+	Pong  string `json:"pong"`
+	Times int    `json:"times"`
 }
 
 func (pongResponce) CmdName() string {
@@ -25,29 +27,35 @@ func (pongResponce) CmdName() string {
 }
 
 type session struct {
-	protoVersion  int
-	pingTime 	  int
+	protoVersion int
+	pingTime     int
 }
 
 func sessionFromConn(conn apiserver.Conn) *session {
 	return conn.Session().(*session)
 }
 
-func (commandHandler) Echo(conn apiserver.Conn,request *pingRequest) (pongResponce,error) {
+func (commandHandler) Echo(conn apiserver.Conn, request *pingRequest) (pongResponce, error) {
 	sess := sessionFromConn(conn)
 	sess.pingTime++
-	return pongResponce{ Pong: request.Ping, Times: sess.pingTime },nil
+	return pongResponce{Pong: request.Ping, Times: sess.pingTime}, nil
 }
-
 
 func main() {
 	handler := &commandHandler{}
 
 	router := apiserver.NewRouter()
-	router.RegisterApiHandler(0,`ping`, handler.Echo)
+	router.RegisterApiHandler(0, `ping`, handler.Echo)
 
-	srv := apiserver.NewServer(router, func() interface{} {
-		return new(session)
+	srv, err := apiserver.NewServer(apiserver.ServerOpts{
+		Router: router,
+		NewSessionFn: func() interface{} {
+			return new(session)
+		},
+		Logger: log.New(os.Stderr, "", log.LstdFlags),
 	})
-	log.Println(http.ListenAndServe(`:9091`,srv))
+	if err != nil {
+		panic(err)
+	}
+	log.Println(http.ListenAndServe(`:9091`, srv))
 }

@@ -2,6 +2,7 @@ package apiserver
 
 import (
 	"io"
+
 	"golang.org/x/net/websocket"
 )
 
@@ -18,15 +19,7 @@ type Connection struct {
 	onInput onInputFunc
 	onClose func(Conn)
 	ws      *websocket.Conn
-}
-
-func NewConnection(ws *websocket.Conn, onInput onInputFunc, onClose func(Conn), session interface{}) *Connection {
-	return &Connection{
-		sess:    session,
-		onInput: onInput,
-		onClose: onClose,
-		ws:      ws,
-	}
+	log     Logger
 }
 
 func (self *Connection) Start() {

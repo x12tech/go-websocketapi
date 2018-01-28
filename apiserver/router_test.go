@@ -34,13 +34,15 @@ var _ = Describe("main", func() {
 		router     *apiserver.Router
 		server     *apiserver.Server
 		httpserver *http.Server
+		err        error
 		port       int
 	)
 	BeforeEach(func() {
 		router = apiserver.NewRouter()
-		server = apiserver.NewServer(router, func() interface{} {
-			return ``
+		server, err = apiserver.NewServer(apiserver.ServerOpts{
+			Router: router,
 		})
+		Expect(err).To(Succeed())
 		listener, p, err := ListenSomeTcpPort()
 		port = p
 		Expect(err).To(Succeed())
