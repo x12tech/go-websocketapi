@@ -117,6 +117,23 @@ func (self *Router) ProcessPacket(conn Conn, packetBuf []byte) {
 	}
 }
 
+func MarshallCommands(cmds ...CmdNamer) []byte {
+	packet := PacketOut{
+		Commands: make([]CommandOut, 0, len(cmds)),
+	}
+	for _, cmd := range cmds {
+		packet.Commands = append(packet.Commands, CommandOut{Name: cmd.CmdName(), Data: cmd})
+	}
+	buf, err := json.Marshal(packet)
+	if err != nil {
+		errPacket := PacketOut{
+			Commands: ApiError(`internal_error`, err.Error()),
+		}
+		buf, _ = json.Marshal(errPacket)
+	}
+	return buf
+}
+
 type ServerCommandDesciption struct {
 	Name           string
 	ReplayCommands []string

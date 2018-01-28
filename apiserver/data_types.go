@@ -21,7 +21,7 @@ func ApiError(typ, message string) []CommandOut {
 
 type CommandIn struct {
 	Name string          `json:"name"`
-	Data json.RawMessage `json:"data"`
+	Data json.RawMessage `json:"data,omitempty"`
 }
 
 type PacketIn struct {
@@ -31,7 +31,7 @@ type PacketIn struct {
 
 type CommandOut struct {
 	Name string      `json:"name"`
-	Data interface{} `json:"data"`
+	Data interface{} `json:"data,omitempty"`
 }
 
 type PacketOut struct {

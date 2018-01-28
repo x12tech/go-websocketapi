@@ -50,7 +50,14 @@ func (self *Connection) Session() interface{} {
 	return self.sess
 }
 
+type Closer interface {
+	Close()
+}
+
 func (self *Connection) Close() {
+	if sessionCloser, ok := self.sess.(Closer); ok {
+		sessionCloser.Close()
+	}
 	self.onClose(self)
 	self.ws.Close()
 }
