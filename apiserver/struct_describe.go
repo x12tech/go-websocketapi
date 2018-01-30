@@ -32,6 +32,10 @@ func (self *Describer) visited(t reflect.Type) bool {
 	return false
 }
 
+func (self *Describer) unvisited(t reflect.Type) {
+	delete(self.visitedTypes, t)
+}
+
 func (self *Describer) describeStruct(t reflect.Type) map[string]interface{} {
 	descr := make(map[string]interface{})
 	nFields := t.NumField()
@@ -61,6 +65,7 @@ func (self *Describer) describeType(t reflect.Type) interface{} {
 	if self.visited(t) {
 		return `...`
 	}
+	defer self.unvisited(t)
 	if descr, ok := self.typeMap[t]; ok {
 		return descr
 	}
