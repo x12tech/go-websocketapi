@@ -153,6 +153,32 @@ var _ = Describe("main", func() {
 					]}
 		`))
 	})
+	It(`works with middleware`, func() {
+		router.With(func(conn apiserver.Conn) (commands []apiserver.CmdNamer, next bool) {
+			return nil, true
+		}).With(func(conn apiserver.Conn) (commands []apiserver.CmdNamer, next bool) {
+			return []apiserver.CmdNamer{
+				apiserver.ApiError(`errtype`, `descr`),
+			}, false
+		}).RegisterApiHandler(0, `cmdname`, func(conn apiserver.Conn) error {
+			return nil
+		})
+		c := Connect()
+		c.Send([]byte(`
+			{ "cid": 123, "cmds":[{  "name" : "cmdname" }]}
+		`))
+		Expect(c.Await()).To(MatchJSON(`{ "cid" : 123, "cmds": [{  "name" : "Error", "data" : { "type" : "errtype", "msg" : "descr"} }]}`))
+	})
+	It(`handles apierror`, func() {
+		router.RegisterApiHandler(0, `cmdname`, func(conn apiserver.Conn) error {
+			return apiserver.ApiError(`errtype`, `descr`)
+		})
+		c := Connect()
+		c.Send([]byte(`
+			{ "cid": 123, "cmds":[{  "name" : "cmdname" }]}
+		`))
+		Expect(c.Await()).To(MatchJSON(`{ "cid" : 123, "cmds": [{  "name" : "Error", "data" : { "type" : "errtype", "msg" : "descr"} }]}`))
+	})
 })
 
 type ApiClient struct {

@@ -2,16 +2,31 @@ package apiserver
 
 import "encoding/json"
 
-type ErrorCommandData struct {
+type ErrorCommand struct {
 	Type    string `json:"type"`
 	Message string `json:"msg"`
 }
 
-func ApiError(typ, message string) []CommandOut {
+func (ErrorCommand) CmdName() string {
+	return `Error`
+}
+
+func (e ErrorCommand) Error() string {
+	return e.Type + `: ` + e.Message
+}
+
+func ApiError(typ, message string) *ErrorCommand {
+	return &ErrorCommand{
+		Type:    typ,
+		Message: message,
+	}
+}
+
+func apiErrorCommands(typ, message string) []CommandOut {
 	return []CommandOut{
 		{
-			Name: `error`,
-			Data: &ErrorCommandData{
+			Name: `Error`,
+			Data: &ErrorCommand{
 				Type:    typ,
 				Message: message,
 			},

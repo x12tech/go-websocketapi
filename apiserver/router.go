@@ -52,12 +52,47 @@ func (self *Router) RegisterApiHandler(version int, command string, handler hand
 		handlers = new(handlerValues)
 		self.commandHandlers[command] = handlers
 	}
-	*handlers = append(*handlers, handlerValue{version, NewHandler(handler)})
+	*handlers = append(*handlers, handlerValue{version, NewHandler(handler, nil)})
+	sort.Sort(*handlers)
+}
+
+type MiddlewareFunc func(conn Conn) (commands []CmdNamer, next bool)
+
+func (self *Router) RegisterApiHandlerWithMiddleware(version int, command string, handler handlerFunc, middle []MiddlewareFunc) {
+	handlers := self.commandHandlers[command]
+	if handlers == nil {
+		handlers = new(handlerValues)
+		self.commandHandlers[command] = handlers
+	}
+	*handlers = append(*handlers, handlerValue{version, NewHandler(handler, middle)})
 	sort.Sort(*handlers)
 }
 
 func (self *Router) RegisterGetVersion(cb func(conn Conn) int) {
 	self.getVersion = cb
+}
+
+func (self *Router) With(mw MiddlewareFunc) *middlewareWrapper {
+	return &middlewareWrapper{
+		funcs:  []MiddlewareFunc{mw},
+		router: self,
+	}
+}
+
+type middlewareWrapper struct {
+	funcs  []MiddlewareFunc
+	router *Router
+}
+
+func (self *middlewareWrapper) With(mw MiddlewareFunc) *middlewareWrapper {
+	return &middlewareWrapper{
+		funcs:  append(self.funcs, mw),
+		router: self.router,
+	}
+}
+
+func (self *middlewareWrapper) RegisterApiHandler(version int, command string, handler handlerFunc) {
+	self.router.RegisterApiHandlerWithMiddleware(version, command, handler, self.funcs)
 }
 
 func (self *Router) ProcessCommand(conn Conn, version int, command string, data json.RawMessage) (res []CommandOut) {
@@ -68,7 +103,7 @@ func (self *Router) ProcessCommand(conn Conn, version int, command string, data 
 				cmds, err := handler.Handler.Call(conn, data)
 				res = make([]CommandOut, 0, len(cmds))
 				if err != nil {
-					res = ApiError(`exec_error`, err.Error())
+					res = apiErrorCommands(`exec_error`, err.Error())
 				} else {
 					for _, cmd := range cmds {
 						res = append(res, CommandOut{
@@ -82,10 +117,10 @@ func (self *Router) ProcessCommand(conn Conn, version int, command string, data 
 			}
 		}
 		if !found {
-			res = ApiError(`command_handler_not_found`, `command_handler_not_found version`)
+			res = apiErrorCommands(`command_handler_not_found`, `command_handler_not_found version`)
 		}
 	} else {
-		res = ApiError(`command_handler_not_found`, `command_handler_not_found at all`)
+		res = apiErrorCommands(`command_handler_not_found`, `command_handler_not_found at all`)
 	}
 	return
 }
@@ -95,7 +130,7 @@ func (self *Router) ProcessPacket(conn Conn, packetBuf []byte) {
 	err := json.Unmarshal(packetBuf, &packet)
 	if err != nil {
 		errBuf, _ := json.Marshal(&PacketOut{
-			Commands: ApiError("cannot parse command", err.Error()),
+			Commands: apiErrorCommands("cannot parse command", err.Error()),
 		})
 		conn.Send(errBuf)
 		return
@@ -125,7 +160,7 @@ func MarshallCommands(cmds ...CmdNamer) []byte {
 	buf, err := json.Marshal(packet)
 	if err != nil {
 		errPacket := PacketOut{
-			Commands: ApiError(`internal_error`, err.Error()),
+			Commands: apiErrorCommands(`internal_error`, err.Error()),
 		}
 		buf, _ = json.Marshal(errPacket)
 	}

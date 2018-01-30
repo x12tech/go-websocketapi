@@ -10,10 +10,11 @@ import (
 type handlerFunc interface{}
 
 type handler struct {
-	Func     reflect.Value
-	Input    reflect.Type
-	InputPtr bool
-	Output   []handlerOut
+	Func       reflect.Value
+	Input      reflect.Type
+	InputPtr   bool
+	Output     []handlerOut
+	Middleware []MiddlewareFunc
 }
 
 type handlerOut struct {
@@ -25,7 +26,7 @@ type handlerOut struct {
 var connectionType = reflect.TypeOf((*Conn)(nil)).Elem()
 var namerType = reflect.TypeOf((*CmdNamer)(nil)).Elem()
 
-func NewHandler(f handlerFunc) *handler {
+func NewHandler(f handlerFunc, middleware []MiddlewareFunc) *handler {
 	funcValue := reflect.ValueOf(f)
 	funcType := funcValue.Type()
 	if funcType.Kind() != reflect.Func {
@@ -42,6 +43,7 @@ func NewHandler(f handlerFunc) *handler {
 	}
 	h := new(handler)
 	h.Func = funcValue
+	h.Middleware = middleware
 	if funcType.NumIn() == 2 {
 		h.Input, h.InputPtr = ptrType(funcType.In(1))
 	}
@@ -71,6 +73,14 @@ func (self *handler) Call(conn Conn, data []byte) ([]CmdNamer, error) {
 	if conn == nil {
 		return nil, errors.New(`call with nil Conn`)
 	}
+	out := make([]CmdNamer, 0, 10)
+	for _, mw := range self.Middleware {
+		res, cont := mw(conn)
+		out = append(out, res...)
+		if !cont {
+			return out, nil
+		}
+	}
 	var inputValue reflect.Value
 	if self.Input != nil {
 		inputValue = reflect.New(self.Input)
@@ -89,7 +99,6 @@ func (self *handler) Call(conn Conn, data []byte) ([]CmdNamer, error) {
 	} else {
 		output = self.Func.Call([]reflect.Value{reflect.ValueOf(conn)})
 	}
-	out := make([]CmdNamer, 0, len(output))
 	for i := 0; i < len(self.Output); i++ {
 		if self.Output[i].isSlice {
 			l := output[i].Len()
@@ -103,7 +112,12 @@ func (self *handler) Call(conn Conn, data []byte) ([]CmdNamer, error) {
 	var retError error
 	var outErrorValue = output[len(self.Output)]
 	if !outErrorValue.IsNil() {
-		retError = outErrorValue.Interface().(error)
+		retErrorIface := outErrorValue.Interface()
+		if errCmd, ok := retErrorIface.(CmdNamer); ok {
+			out = append(out, errCmd)
+		} else {
+			retError = retErrorIface.(error)
+		}
 	}
 
 	return out, retError

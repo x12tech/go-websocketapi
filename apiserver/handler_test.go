@@ -26,12 +26,12 @@ func (self *testOut2) CmdName() string { return `testOut2` }
 var _ = Describe("main", func() {
 	It(`compiles`, func() {
 		f := func(conn apiserver.Conn, arg *testIn) error { return nil }
-		h := apiserver.NewHandler(f)
+		h := apiserver.NewHandler(f, nil)
 		Expect(h).ToNot(BeNil())
 	})
 	It(`compiles2`, func() {
 		f := func(conn apiserver.Conn, arg *testIn) (*testOut, error) { return nil, nil }
-		h := apiserver.NewHandler(f)
+		h := apiserver.NewHandler(f, nil)
 		Expect(h).ToNot(BeNil())
 	})
 	It(`works`, func() {
@@ -40,7 +40,7 @@ var _ = Describe("main", func() {
 				Name: arg.Name,
 			}, nil
 		}
-		h := apiserver.NewHandler(f)
+		h := apiserver.NewHandler(f, nil)
 		Expect(h).ToNot(BeNil())
 		cmds, err := h.Call(apiserver.NewFakeConn(), []byte(`{ "Name": "some" }`))
 		Expect(err).To(Succeed())
@@ -51,7 +51,7 @@ var _ = Describe("main", func() {
 		f := func(conn apiserver.Conn, arg *testIn) (*testOut, error) {
 			return nil, errors.New(`some error`)
 		}
-		h := apiserver.NewHandler(f)
+		h := apiserver.NewHandler(f, nil)
 		Expect(h).ToNot(BeNil())
 		_, err := h.Call(apiserver.NewFakeConn(), []byte(`{ "Name": "some" }`))
 		Expect(err).ToNot(Succeed())
@@ -64,7 +64,7 @@ var _ = Describe("main", func() {
 					Name: arg.Name,
 				}, nil
 		}
-		h := apiserver.NewHandler(f)
+		h := apiserver.NewHandler(f, nil)
 		Expect(h).ToNot(BeNil())
 		Expect(h.String()).To(Equal(`apiserver_test.testIn -> apiserver_test.testOut apiserver_test.testOut2 `))
 		cmds, err := h.Call(apiserver.NewFakeConn(), []byte(`{ "Name": "some" }`))
@@ -73,5 +73,40 @@ var _ = Describe("main", func() {
 		Expect(cmds[0]).To(Equal(&testOut{Name: `some`}))
 		Expect(cmds[1]).To(Equal(&testOut2{Name: `some`}))
 	})
-
+	It(`works with middleware`, func() {
+		f := func(conn apiserver.Conn, arg *testIn) (*testOut, error) {
+			return &testOut{
+				Name: arg.Name,
+			}, nil
+		}
+		h := apiserver.NewHandler(f, []apiserver.MiddlewareFunc{
+			func(conn apiserver.Conn) (commands []apiserver.CmdNamer, next bool) {
+				return nil, true
+			},
+		})
+		Expect(h).ToNot(BeNil())
+		cmds, err := h.Call(apiserver.NewFakeConn(), []byte(`{ "Name": "some" }`))
+		Expect(err).To(Succeed())
+		Expect(len(cmds)).To(Equal(1))
+		Expect(cmds[0]).To(Equal(&testOut{Name: `some`}))
+	})
+	It(`works with middleware 2`, func() {
+		f := func(conn apiserver.Conn, arg *testIn) (*testOut, error) {
+			return &testOut{
+				Name: arg.Name,
+			}, nil
+		}
+		h := apiserver.NewHandler(f, []apiserver.MiddlewareFunc{
+			func(conn apiserver.Conn) (commands []apiserver.CmdNamer, next bool) {
+				return []apiserver.CmdNamer{
+					apiserver.ApiError(`errtype`, `descr`),
+				}, false
+			},
+		})
+		Expect(h).ToNot(BeNil())
+		cmds, err := h.Call(apiserver.NewFakeConn(), []byte(`{ "Name": "some" }`))
+		Expect(err).To(Succeed())
+		Expect(len(cmds)).To(Equal(1))
+		Expect(cmds[0]).To(Equal(&apiserver.ErrorCommand{Type: `errtype`, Message: `descr`}))
+	})
 })
