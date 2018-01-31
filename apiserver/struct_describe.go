@@ -43,7 +43,7 @@ func (self *Describer) describeStruct(t reflect.Type) map[string]interface{} {
 	for i := 0; i < nFields; i++ {
 		f := t.Field(i)
 		name := getFiledName(f)
-		if name == `` {
+		if name == `` || name == `-` {
 			continue
 		}
 		typ := f.Type
