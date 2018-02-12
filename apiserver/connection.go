@@ -2,6 +2,7 @@ package apiserver
 
 import (
 	"io"
+	"sync"
 
 	"golang.org/x/net/websocket"
 )
@@ -74,6 +75,7 @@ func (self *Connection) Close() {
 type FakeConn struct {
 	SessionValue interface{}
 	Written      [][]byte
+	Mu           sync.Mutex
 }
 
 func NewFakeConn() *FakeConn {
@@ -81,6 +83,8 @@ func NewFakeConn() *FakeConn {
 }
 
 func (self *FakeConn) Send(buf []byte) error {
+	self.Mu.Lock()
+	defer self.Mu.Unlock()
 	self.Written = append(self.Written, buf)
 	return nil
 }
