@@ -106,10 +106,12 @@ func (self *Router) ProcessCommand(conn Conn, version int, command string, data 
 					res = apiErrorCommands(`exec_error`, err.Error())
 				} else {
 					for _, cmd := range cmds {
-						res = append(res, CommandOut{
-							Name: cmd.CmdName(),
-							Data: cmd,
-						})
+						if cmd != nil {
+							res = append(res, CommandOut{
+								Name: cmd.CmdName(),
+								Data: cmd,
+							})
+						}
 					}
 				}
 				found = true
