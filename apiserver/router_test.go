@@ -179,6 +179,16 @@ var _ = Describe("main", func() {
 		`))
 		Expect(c.Await()).To(MatchJSON(`{ "cid" : 123, "cmds": [{  "name" : "Error", "data" : { "type" : "errtype", "msg" : "descr"} }]}`))
 	})
+	It(`handles nil`, func() {
+		router.RegisterApiHandler(0, `cmdname`, func(conn apiserver.Conn) (*testEchoResponce, error) {
+			return nil, apiserver.ApiError(`errtype`, `descr`)
+		})
+		c := Connect()
+		c.Send([]byte(`
+			{ "cid": 123, "cmds":[{  "name" : "cmdname" }]}
+		`))
+		Expect(c.Await()).To(MatchJSON(`{ "cid" : 123, "cmds": [{  "name" : "Error", "data" : { "type" : "errtype", "msg" : "descr"} }]}`))
+	})
 })
 
 type ApiClient struct {

@@ -103,10 +103,10 @@ func (self *handler) Call(conn Conn, data []byte) ([]CmdNamer, error) {
 		if self.Output[i].isSlice {
 			l := output[i].Len()
 			for m := 0; m < l; m++ {
-				out = append(out, output[i].Index(m).Interface().(CmdNamer))
+				out = append(out, getCmdNamer(output[i].Index(m)))
 			}
 		} else {
-			out = append(out, output[i].Interface().(CmdNamer))
+			out = append(out, getCmdNamer(output[i]))
 		}
 	}
 	var retError error
@@ -121,6 +121,15 @@ func (self *handler) Call(conn Conn, data []byte) ([]CmdNamer, error) {
 	}
 
 	return out, retError
+}
+
+func getCmdNamer(value reflect.Value) CmdNamer {
+	if value.Kind() == reflect.Ptr {
+		if value.IsNil() {
+			return nil
+		}
+	}
+	return value.Interface().(CmdNamer)
 }
 
 func (self *handler) String() string {
