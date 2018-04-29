@@ -30,10 +30,10 @@ func (StillAlive) CmdName() string {
 func (self *ActiveSession) Start(c apiserver.Conn) {
 	self.conn = c
 	time.AfterFunc(time.Millisecond, func() {
-		self.conn.Send(apiserver.MarshallCommands(StillAlive{Ping: `test`}))
+		self.conn.Send(StillAlive{Ping: `test`})
 	})
 	time.AfterFunc(time.Millisecond*3, func() {
-		self.conn.Send(apiserver.MarshallCommands(StillAlive{Ping: `test 2`}))
+		self.conn.Send(StillAlive{Ping: `test 2`})
 	})
 }
 

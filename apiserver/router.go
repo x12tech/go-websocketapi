@@ -28,7 +28,7 @@ type IRouter interface {
 type Router struct {
 	commandHandlers map[string]*handlerValues
 	getVersion      func(conn Conn) int
-	log             Logger
+	cmdLogger       CmdLogger
 }
 
 func NewRouter() *Router {
@@ -37,9 +37,8 @@ func NewRouter() *Router {
 		getVersion:      func(conn Conn) int { return 0 },
 	}
 }
-
-func (self *Router) SetLogger(l Logger) {
-	self.log = l
+func (self *Router) SetCmdLogger(l CmdLogger) {
+	self.cmdLogger = l
 }
 
 // handlerFunc Must be func(*Conn,*SomeType) *SomeRetType,error
@@ -134,7 +133,7 @@ func (self *Router) ProcessPacket(conn Conn, packetBuf []byte) {
 		errBuf, _ := json.Marshal(&PacketOut{
 			Commands: apiErrorCommands("cannot parse command", err.Error()),
 		})
-		conn.Send(errBuf)
+		conn.send(errBuf)
 		return
 	}
 	out := &PacketOut{
@@ -144,21 +143,18 @@ func (self *Router) ProcessPacket(conn Conn, packetBuf []byte) {
 		res := self.ProcessCommand(conn, 0, cmd.Name, cmd.Data)
 		out.Commands = append(out.Commands, res...)
 	}
+	if self.cmdLogger != nil {
+		self.cmdLogger.LogRequest(conn.Session(), packet, out)
+	}
 	ret, err := json.Marshal(out)
 	if err != nil {
 		panic(err)
 	} else {
-		conn.Send(ret)
+		conn.send(ret)
 	}
 }
 
-func MarshallCommands(cmds ...CmdNamer) []byte {
-	packet := PacketOut{
-		Commands: make([]CommandOut, 0, len(cmds)),
-	}
-	for _, cmd := range cmds {
-		packet.Commands = append(packet.Commands, CommandOut{Name: cmd.CmdName(), Data: cmd})
-	}
+func marshallPacket(packet PacketOut) []byte {
 	buf, err := json.Marshal(packet)
 	if err != nil {
 		errPacket := PacketOut{

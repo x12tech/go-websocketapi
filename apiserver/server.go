@@ -11,6 +11,11 @@ type Logger interface {
 	Println(v ...interface{})
 }
 
+type CmdLogger interface {
+	LogRequest(session interface{}, in *PacketIn, out *PacketOut)
+	LogPush(session interface{}, out *PacketOut)
+}
+
 type EmptyLogger struct{}
 
 func (EmptyLogger) Println(v ...interface{}) {}
@@ -20,12 +25,14 @@ type Server struct {
 	wsServer       *websocket.Server
 	newSessionFunc func() interface{}
 	log            Logger
+	cmdLogger      CmdLogger
 }
 
 type ServerOpts struct {
 	Router       *Router
 	NewSessionFn func() interface{}
 	Logger       Logger
+	CmdLogger    CmdLogger
 }
 
 func NewServer(opts ServerOpts) (*Server, error) {
@@ -44,11 +51,11 @@ func NewServer(opts ServerOpts) (*Server, error) {
 		router:         opts.Router,
 		newSessionFunc: opts.NewSessionFn,
 		log:            opts.Logger,
+		cmdLogger:      opts.CmdLogger,
 	}
 	self.wsServer = &websocket.Server{
 		Handler: self.HandleWs,
 	}
-	self.router.SetLogger(self.log)
 	return self, nil
 }
 
@@ -59,11 +66,12 @@ func (self *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 func (self *Server) HandleWs(ws *websocket.Conn) {
 	conn := &Connection{
-		ws:      ws,
-		onInput: self.router.ProcessPacket,
-		onClose: self.onConnectionClose,
-		log:     self.log,
-		sess:    self.newSessionFunc(),
+		ws:        ws,
+		onInput:   self.router.ProcessPacket,
+		onClose:   self.onConnectionClose,
+		log:       self.log,
+		cmdLogger: self.cmdLogger,
+		sess:      self.newSessionFunc(),
 	}
 	conn.Start()
 }

@@ -61,7 +61,7 @@ func (sess *Session) sendLoop() {
 		select {
 		case <-ticker.C:
 			sess.counter++
-			sess.conn.Send(apiserver.MarshallCommands(serverPush(`pushdata ` + strconv.Itoa(sess.counter))))
+			sess.conn.Send(serverPush(`pushdata ` + strconv.Itoa(sess.counter)))
 		case <-sess.stopCh:
 			return
 		}
