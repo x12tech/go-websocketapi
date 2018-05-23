@@ -42,13 +42,16 @@ func (self *Describer) describeStruct(t reflect.Type) map[string]interface{} {
 
 	for i := 0; i < nFields; i++ {
 		f := t.Field(i)
-		name := getFiledName(f)
+		name, opt := getFiledName(f)
 		if name == `` || name == `-` {
 			continue
 		}
 		typ := f.Type
 		if typ.Kind() == reflect.Ptr {
 			typ = typ.Elem()
+		}
+		if opt {
+			name = name + `?`
 		}
 		descr[name] = self.describeType(typ)
 	}
@@ -85,13 +88,16 @@ func (self *Describer) describeType(t reflect.Type) interface{} {
 	return t.String()
 }
 
-func getFiledName(fld reflect.StructField) string {
+func getFiledName(fld reflect.StructField) (string, bool) {
 	if fld.PkgPath != `` {
-		return ``
+		return ``, false
 	}
 	js := strings.Split(fld.Tag.Get(`json`), `,`)
 	if len(js) > 0 && js[0] != `` {
-		return js[0]
+		if len(js) > 1 && js[1] == `omitempty` {
+			return js[0], true
+		}
+		return js[0], false
 	}
-	return fld.Name
+	return fld.Name, false
 }
